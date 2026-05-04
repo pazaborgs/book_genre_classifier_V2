@@ -1,11 +1,12 @@
 ./venv
 env/
 data/
+.venv/
+data/
+.env
 *.csv
 *.parquet
 *.xlsx
-
-.env
 __pycache__/
 .pytest_cache/
 .secrets/
