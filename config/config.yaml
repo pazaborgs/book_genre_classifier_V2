@@ -1,0 +1,14 @@
+data_paths:
+  raw_data: "data/raw/tombo_latest.xlsx"
+  bronze: "data/bronze/tombo_bronze.csv"
+  silver: "data/silver/tombo_silver.parquet"
+  gold: "data/gold/tombo_gold.parquet"
+  export_data: "data/export/tombo_export.xlsx"
+
+# Agent Settings (WIP)
+
+# Sheets Settings + GCP
+
+sheets:
+  spreadsheet_id: "19hLlUMZc0_jDcWJ_0jSuewUysUbZsIs6"
+  credentials_path: ".secrets/google_drive_credentials.json"
