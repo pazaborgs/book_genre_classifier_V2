@@ -1,23 +1,22 @@
 # 📚 Book Genre Classifier V2
 
-> 🚧 **WORK IN PROGRESS:** Este projeto é um MVP funcional (v1.0), mas encontra-se em fase de refatoração ativa para otimização de chamadas de API (_Rate Limits_), economia de tokens e resiliência das ferramentas de web scraping.
+> 🚧 **WORK IN PROGRESS:** Este projeto encontra-se em fase de refatoração ativa para otimização de chamadas de API (_Rate Limits_), economia de tokens, resiliência das ferramentas de web scraping...
 
-Um sistema automatizado de classificação literária desenvolvido para o acervo e um colégio municipal.
+Um sistema automatizado de classificação de gênero literário desenvolvido para o acervo de um colégio municipal.
 
-O pipeline une Engenharia de Dados Clássica a Agentes Autônomos de IA para ler um inventário bruto, buscar sinopses na web e inferir a categoria pedagógica correta de cada livro, garantindo a idempotência do processamento.
+O pipeline une Engenharia de Dados Clássica a Agentes Autônomos de IA para ler um inventário bruto, buscar sinopses na web e inferir a categoria (gênero) correta de cada livro, garantindo a idempotência do processamento.
 
-## 🛠️ Stack Tecnológico
+## 🛠️ Stack (Planejado)
 
 - **Engenharia de Dados:** Arquitetura Medallion (Bronze, Silver, Gold), Pandas, formato `.parquet`.
 - **Agentes & IA:** LangGraph, LangChain, Google Gemini, Pydantic (Structured Outputs).
 - **Integrações (Tools):** Google Books API, DuckDuckGo Search (Skoob / Goodreads).
 - **Interface & Monitoramento:** Streamlit.
 
-## 🚀 Como visualizar o painel de Logs (CLI Style)
+## 📌 Backlog
 
-Certifique-se de ter suas credenciais configuradas no arquivo `config.yaml` e no `.env` (não versionados por segurança).
+[] Colocar os dados na nuvem (GCP, AWS…) + container Docker.
+[] Criar o painel interativo usando Streamlit.
+[] Melhorar o prompt de classificação e testar modelos de LLM diferentes.
+[] Classificar 20-30% da base de dados até o final do mês.
 
-```bash
-# Inicie o painel de monitoramento
-streamlit run app.py
-```
