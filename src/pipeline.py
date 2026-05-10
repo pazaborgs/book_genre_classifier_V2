@@ -1,7 +1,7 @@
 import time
-from tqdm import tqdm
 from rich.console import Console
 from rich.panel import Panel
+
 from src.ingest_sheet import download_spreadsheet
 from src.bronze import ingest_bronze
 from src.silver import process_silver
@@ -12,19 +12,10 @@ console = Console()
 
 def run_pipeline(update_sheet=False):
 
-    # Cabeçalho
-    console.print(
-        Panel.fit(
-            "[bold blue]Book Genre Classifier - Data Pipeline[/bold blue]",
-            border_style="blue",
-        )
-    )
-    console.print("[dim]" + "─" * 40 + "[/dim]")
-
     steps = [
         {"name": "Camada Bronze", "func": ingest_bronze},
         {"name": "Camada Silver", "func": process_silver},
-        {"name": "Camada Gold  ", "func": process_gold},
+        {"name": "Camada Gold", "func": process_gold},
     ]
 
     if update_sheet:
@@ -36,26 +27,29 @@ def run_pipeline(update_sheet=False):
             },
         )
 
-    with tqdm(
-        total=len(steps),
-        desc="Progresso",
-        bar_format="{l_bar}{bar:15}{r_bar}",
-        colour="blue",
-    ) as pbar:
-        for step in steps:
-            pbar.write(f"\n● Processando {step['name']}...\n")
+    with console.status(
+        "[bold cyan]Iniciando orquestração...[/bold cyan]", spinner="point"
+    ) as status:
+        for i, step in enumerate(steps, 1):
+            status.update(
+                f"[bold blue]● Etapa {i}/{len(steps)}: Processando {step['name']}...[/bold blue]"
+            )
 
             try:
                 step["func"]()
-                time.sleep(0.3)
-                pbar.update(1)
+                time.sleep(0.4)
+
             except Exception as e:
-                pbar.write(f"\n[ERRO CRÍTICO] Falha na etapa: {step['name']}")
-                pbar.write(f"Detalhes: {e}")
+                console.print(
+                    f"\n[bold red][ERRO CRÍTICO] Falha na etapa: {step['name']}[/bold red]"
+                )
+                console.print(f"[red]Detalhes: {e}[/red]")
                 return
 
     console.print("\n[dim]" + "─" * 40 + "[/dim]")
-    console.print("[bold green]Pipeline concluído com sucesso![/bold green]\n")
+    console.print(
+        "[bold green]✔ Pipeline de Dados concluído com sucesso![/bold green]\n"
+    )
 
 
 if __name__ == "__main__":

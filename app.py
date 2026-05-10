@@ -4,12 +4,57 @@ import ast
 from datetime import datetime, timedelta
 from src.bronze import load_config
 
-st.set_page_config(page_title="UME Andradas 2 | Logs", page_icon="📖", layout="wide")
+st.set_page_config(page_title="book_genre_classifier_V2", page_icon="📖", layout="wide")
+
+# Paleta
+
+CLI_PALETTE = {
+    "DIDÁTICO": "#56B6C2",
+    "VERMELHO": "#E06C75",
+    "OURO": "#D19A66",
+    "AMARELO": "#E5C07B",
+    "PRATA": "#ABB2BF",
+    "LARANJA": "#FF8C00",
+    "VERDE": "#98C379",
+    "PRETO": "#5C6370",
+    "AZUL": "#61AFEF",
+    "BRANCO": "#FFFFFF",
+    "ERRO": "#FF0000",
+}
+
+
+def get_badge_html(color_name: str) -> str:
+    """
+    Gera um indicador de status com estética CLI.
+    """
+    hex_color = CLI_PALETTE.get(color_name.upper(), "#FF0000")
+
+    return f"""
+    <div style="
+        display: flex; 
+        align-items: center; 
+        justify-content: flex-end; 
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: bold;
+        font-size: 1.1rem;
+        letter-spacing: 1px;
+        color: #E0E0E0;
+        margin-top: 5px;
+    ">
+        <span style="
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            background-color: {hex_color};
+            border-radius: 50%;
+            margin-right: 8px;
+        "></span>
+        {color_name}
+    </div>
+    """
 
 
 def main():
-    st.markdown("> **`Classificador de Livros (V2)`**")
-    st.markdown("---")
 
     try:
         config = load_config()
@@ -19,7 +64,7 @@ def main():
         df_success = df[df["save_status"].isin(["ok", "concluido"])].copy()
 
         if df_success.empty:
-            st.error("> [ERRO] Nenhum livro classificado no banco de dados.")
+            st.error("> `[ERRO] Nenhum livro classificado no banco de dados.`")
             return
 
         if "processed_at" in df_success.columns:
@@ -29,27 +74,18 @@ def main():
             df_success = df_success.dropna(subset=["processed_at"])
             df_success = df_success.sort_values(by="processed_at", ascending=False)
 
-        st.markdown("### `[⚙️] PARÂMETROS DE FILTRAGEM`")
+        st.markdown("### `[⚙️] PARÂMETROS DE BUSCA`")
         filter_col1, filter_col2 = st.columns(2)
 
         with filter_col1:
-            timeframe_options = [
-                "Hoje",
-                "Últimos 3 dias",
-                "Últimos 7 dias",
-                "Todos os registros",
-            ]
-            selected_timeframe = st.selectbox(
-                "`Selecione o Timeframe:`", timeframe_options
-            )
+            timeframe_options = ["Hoje", "Últimos 3 dias", "Últimos 7 dias", "Todos"]
+            selected_timeframe = st.selectbox("`Timeframe:`", timeframe_options)
 
         with filter_col2:
             unique_colors = sorted(
                 df_success["color_suggestion"].dropna().unique().tolist()
             )
-            selected_colors = st.multiselect(
-                "`Filtrar por Cor (Deixe vazio para todas):`", unique_colors
-            )
+            selected_colors = st.multiselect("`Cor-Alvo:`", unique_colors)
 
         now = datetime.now()
         if selected_timeframe == "Hoje":
@@ -69,54 +105,64 @@ def main():
             ]
 
         st.markdown("---")
-        st.markdown(f"### `[>] RESULTADOS ENCONTRADOS: {len(df_success)}`")
+        st.markdown(f"### `[>] REGISTROS ENCONTRADOS: {len(df_success)}`")
 
         if df_success.empty:
-            st.warning("`> [AVISO] Nenhum registro bate com os filtros aplicados.`")
+            st.warning("`> [AVISO] Query retornou 0 resultados.`")
             return
 
-        latest_books = df_success.head(20)
+        # Render
 
-        for _, row in latest_books.iterrows():
-            title = row.get("titulo", "Sem Título").upper()
-            author = row.get("autores", "Desconhecido")
-            book_id = row.get("tombo", "N/A")
-            color = row.get("color_suggestion", "ERRO")
-            justification = row.get("justification", "Sem justificativa.")
-            proc_date = row["processed_at"].strftime("%d/%m/%Y %H:%M:%S")
+        grid_cols = st.columns(2)
 
-            # Tratamento seguro para extrair e formatar as probabilidades
-            # Assumindo que a coluna gerada pelo seu Pydantic schema chama 'top_3_probabilities'
-            raw_probs = row.get("top_3_probabilities", "N/A")
+        for index, (_, row) in enumerate(df_success.iterrows()):
+            title = str(row.get("titulo", "Sem Título")).upper()
+            author = str(row.get("autores", "Desconhecido")).upper()
+            book_id = str(row.get("tombo", "N/A"))
+            color = str(row.get("color_suggestion", "ERRO"))
+            justification = str(row.get("justification", "Sem justificativa."))
+            proc_date = row["processed_at"].strftime("%d/%m/%y %H:%M")
+
+            # Prob Parser
+
+            raw_probs = row.get("top_3_probabilities", "[]")
             probs_formatted = "N/A"
 
-            if isinstance(raw_probs, dict):
-                probs_formatted = " | ".join(
-                    [f"{k}: {float(v)*100:.1f}%" for k, v in raw_probs.items()]
-                )
-            elif isinstance(raw_probs, str) and raw_probs.startswith("{"):
+            if isinstance(raw_probs, str) and raw_probs.startswith("["):
                 try:
-                    dict_probs = ast.literal_eval(raw_probs)
-                    probs_formatted = " | ".join(
-                        [f"{k}: {float(v)*100:.1f}%" for k, v in dict_probs.items()]
-                    )
+                    list_probs = ast.literal_eval(raw_probs)
+                    if isinstance(list_probs, list):
+                        probs_formatted = " | ".join(
+                            [
+                                f"{p.get('color', '?')}: {float(p.get('score', 0))*100:.0f}%"
+                                for p in list_probs
+                            ]
+                        )
                 except Exception:
-                    probs_formatted = raw_probs
-            else:
-                probs_formatted = str(raw_probs)
+                    probs_formatted = "[ERRO_NO_PARSER]"
 
-            log_entry = f"""> LIVRO_ID: {book_id} | TIMESTAMP: {proc_date}
-> TÍTULO:   {title}
-> AUTOR:    {author}
-> STATUS:   [CLASSIFICADO]
-> COR_ALVO: [{color}]
-> SCORES:   [{probs_formatted}]
-> LOG:      "{justification}"
-"""
-            st.code(log_entry, language="yaml")
+            with grid_cols[index % 2]:
+                with st.container(border=True):
+
+                    # Título na esquerda (70%), Badge na direita (30%)
+                    c_title, c_badge = st.columns([7, 3])
+
+                    with c_title:
+                        st.markdown(f"#### `{title}`")
+                        st.caption(
+                            f"**AUTOR:** `{author}`  |  **TOMBO:** `{book_id}`  |  **DATA:** `{proc_date}`"
+                        )
+
+                    with c_badge:
+                        st.markdown(get_badge_html(color), unsafe_allow_html=True)
+
+                    st.markdown("**`> JUSTIFICATIVA:`**")
+                    st.info(justification, icon="🤖")
+
+                    st.markdown(f"**`> SCORES:`**   `{probs_formatted}`")
 
     except Exception as e:
-        st.error(f"`> [FATAL EXCEPTION] Falha ao ler a camada Gold: {e}`")
+        st.error(f"`> [FATAL EXCEPTION] Kernel Panic: {e}`")
 
 
 if __name__ == "__main__":

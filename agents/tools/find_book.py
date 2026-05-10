@@ -1,118 +1,165 @@
-import requests
-import urllib.parse
 import os
+import time
+import urllib.parse
+from dataclasses import dataclass
+from typing import Optional
+
+import requests
 from dotenv import load_dotenv
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_core.tools import tool
 
 load_dotenv()
 
-# Base Function
+TIMEOUT = 10
+MAX_SYNOPSIS = 2000
 
 
-def _find_book(title: str, authors: str, use_google: bool = True) -> str:
-    """
-    Método interno para buscar livros em cascata.
-    Tenta PT-BR primeiro. Se falhar, expande para catálogos globais (Inglês).
-    """
-    clean_title = title.replace('"', "").strip()
-    clean_authors = authors.replace('"', "").split(",")[0].strip()
+@dataclass
+class BookResult:
+    source: str
+    synopsis: str = ""
+    tags: str = ""
 
-    if use_google:
-        api_key = os.getenv("GOOGLE_BOOKS_API_KEY")
-        if api_key:
+    def __str__(self) -> str:
+        parts = [f"SOURCE: {self.source}"]
+        if self.synopsis:
+            parts.append(f"Synopsis: {self.synopsis[:MAX_SYNOPSIS]}")
+        if self.tags:
+            parts.append(f"Tags: {self.tags}")
+        return "\n".join(parts)
 
-            def extract_best_synopsis(items):
-                for item in items:
-                    book = item.get("volumeInfo", {})
-                    synopsis = book.get("description", "").strip()
-                    if len(synopsis) > 20:
-                        tags = ", ".join(book.get("categories", ["Sem categoria"]))
-                        pages = book.get("pageCount", "N/A")
-                        return f"FONTE: Google Books\nsynopsis: {synopsis}\ntags: {tags}\nPáginas: {pages}"
-                return None
+    @property
+    def found(self) -> bool:
+        return bool(self.synopsis or self.tags)
 
-            query_str = f'intitle:"{clean_title}" inauthor:"{clean_authors}"'
-            query = urllib.parse.quote(query_str)
 
-            # Google Books - PT
+# Helpers
 
-            url_pt = f"https://www.googleapis.com/books/v1/volumes?q={query}&langRestrict=pt&key={api_key}"
-            try:
-                res_pt = requests.get(url_pt, timeout=10)
-                if res_pt.status_code == 200 and "items" in res_pt.json():
-                    best_result = extract_best_synopsis(res_pt.json()["items"])
-                    if best_result:
-                        return best_result
-            except Exception as e:
-                print(f"  [AVISO] Falha no Google Books (PT): {e}")
 
-            # Google Books - Global
+def _clean(text: str) -> str:
+    return text.replace('"', "").strip()
 
-            print(f"  [INFO] Google Books (PT) sem sinopse. Tentando busca Global...")
-            url_global = (
-                f"https://www.googleapis.com/books/v1/volumes?q={query}&key={api_key}"
-            )
-            try:
-                res_global = requests.get(url_global, timeout=10)
-                if res_global.status_code == 200 and "items" in res_global.json():
-                    data_global = res_global.json()
-                    best_result = extract_best_synopsis(data_global["items"])
-                    if best_result:
-                        return best_result
 
-                    # Fallback final do Google sem sinopse
+def _truncate(text: str, limit: int = MAX_SYNOPSIS) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0] + "…"
 
-                    book_fallback = data_global["items"][0].get("volumeInfo", {})
-                    tags = ", ".join(book_fallback.get("categories", ["Sem categoria"]))
-                    return f"FONTE: Google Books (Global)\nsynopsis: Sinopse ausente na API.\ntags: {tags}"
-            except Exception as e:
-                print(f"  [AVISO] Falha no Google Books (Global): {e}")
 
-    print(f"  [AVISO] Acionando DuckDuckGo para '{clean_title}'...")
-    ddg_search = DuckDuckGoSearchResults(num_results=3)
+# Search Engines
 
-    # DDGS Skoob - PT
+# Google Books
 
-    query_skoob = f'site:skoob.com.br "{clean_title}" "{clean_authors}" sinopse'
+
+def _google_books(title: str, authors: str, exact: bool = True) -> Optional[BookResult]:
+    api_key = os.getenv("GOOGLE_BOOKS_API_KEY")
+    if not api_key:
+        return None
+
+    # Se for exato, usa intitle/inauthor. Se não, busca livre.
+
+    query = f'intitle:"{title}" inauthor:"{authors}"' if exact else f"{title} {authors}"
+    url = f"https://www.googleapis.com/books/v1/volumes?q={urllib.parse.quote(query)}&langRestrict=pt&key={api_key}"
+
     try:
-        ddg_res = ddg_search.invoke(query_skoob)
-        if ddg_res and "snippet" in ddg_res.lower() and len(ddg_res) > 30:
-            return f"FONTE: DuckDuckGo (Skoob)\nResultados:\n{ddg_res}"
+        r = requests.get(url, timeout=TIMEOUT)
+        if r.status_code == 200 and "items" in r.json():
+            for item in r.json()["items"]:
+                info = item.get("volumeInfo", {})
+                synopsis = info.get("description", "").strip()
+                if len(synopsis) > 20:
+                    tags = ", ".join(info.get("categories", []))
+                    return BookResult(
+                        source=(
+                            "Google Books (Exact)" if exact else "Google Books (Broad)"
+                        ),
+                        synopsis=synopsis,
+                        tags=tags,
+                    )
     except Exception:
         pass
+    return None
 
-    # DDGS Goodreads - Global
 
-    print(f"  [INFO] Skoob falhou. Tentando Goodreads (Global)...")
-    query_goodreads = (
-        f'site:goodreads.com "{clean_title}" "{clean_authors}" book summary'
+# Open Library
+
+
+def _open_library(title: str) -> Optional[BookResult]:
+    url = (
+        f"https://openlibrary.org/search.json?title={urllib.parse.quote(title)}&limit=3"
     )
     try:
-        ddg_res = ddg_search.invoke(query_goodreads)
-        if ddg_res and "snippet" in ddg_res.lower() and len(ddg_res) > 30:
-            return f"FONTE: DuckDuckGo (Goodreads)\nResultados:\n{ddg_res}"
+        r = requests.get(url, timeout=TIMEOUT)
+        if r.status_code == 200 and r.json().get("numFound", 0) > 0:
+            for doc in r.json()["docs"]:
+                subjects = ", ".join(doc.get("subject", [])[:10])
+                if subjects:
+                    return BookResult(source="Open Library", tags=subjects)
     except Exception:
         pass
+    return None
 
-    # DDGS - Busca Geral
 
-    print(f"  [INFO] Catálogos falharam. Tentando busca ampla...")
-    query_ampla = f'"{clean_title}" "{clean_authors}" book summary OR sinopse'
+# DDGS
+
+
+def _duckduckgo_search(title: str, target: str) -> Optional[BookResult]:
+    """
+    Usa o DDGS para varrer sites específicos sem tomar block
+    """
+    time.sleep(1.5)  # DDGS Rate Limit
+    ddg = DuckDuckGoSearchResults(num_results=2)
+
+    query = (
+        f'site:amazon.com.br "{title}" livro'
+        if target == "amazon"
+        else f'"{title}" livro sinopse'
+    )
+
     try:
-        ddg_res = ddg_search.invoke(query_ampla)
-        if not ddg_res or "snippet" not in ddg_res.lower():
-            return f"FONTE: DuckDuckGo\nResultados: Nenhuma sinopse ou resumo encontrado na web."
-        return f"FONTE: DuckDuckGo (Geral)\nResultados:\n{ddg_res}"
-    except Exception as e:
-        return "FONTE: ERRO\nResultados: Falha ao buscar na web."
+        res = ddg.invoke(query)
+        if res and "snippet" in res.lower() and len(res) > 30:
+            return BookResult(source=f"Web Scraping ({target.title()})", synopsis=res)
+    except Exception:
+        pass
+    return None
 
 
-# Ferramenta (Tool) de busca
+def _find_book(title: str, authors: str) -> str:
+    """
+    Busca contexto dos livros usando Google Books, DDGS ou Open Library
+    """
+    clean_title = _clean(title)
+    clean_authors = _clean(authors)
+
+    pipeline = [
+        ("Google Exact", lambda: _google_books(clean_title, clean_authors, exact=True)),
+        (
+            "Google Broad",
+            lambda: _google_books(clean_title, clean_authors, exact=False),
+        ),
+        ("Amazon (DDGS)", lambda: _duckduckgo_search(clean_title, "amazon")),
+        ("Web General", lambda: _duckduckgo_search(clean_title, "general")),
+        ("Open Library", lambda: _open_library(clean_title)),
+    ]
+
+    for name, fn in pipeline:
+        try:
+            result = fn()
+            if result and result.found:
+                result.synopsis = _truncate(result.synopsis)
+                return str(result)
+        except Exception:
+            pass
+    return (
+        f"SOURCE: NOT FOUND\nDetails: Nenhuma sinopse localizada para '{clean_title}'."
+    )
+
+
 @tool
 def find_book(title: str, authors: str) -> str:
     """
     Busca informações detalhadas, synopsis e tags de um livro.
-    Esta ferramenta é a única que deve ser usada para pesquisar dados da obra.
     """
-    return _find_book(title, authors, use_google=True)
+    return _find_book(title, authors)

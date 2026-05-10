@@ -13,15 +13,23 @@ def search_node(state: dict) -> dict:
     print(f"\n  [*] Iniciando busca externa: '{title}'")
 
     try:
-        # Chamada da ferramenta de busca
         res = _find_book(title=title, authors=authors)
 
-        # Identificação da origem para o log
-        source = "Google Books" if "source: Google Books" in res else "DuckDuckGo"
+        source_line = [line for line in res.split("\n") if line.startswith("SOURCE:")]
+        exact_source = (
+            source_line[0].replace("SOURCE: ", "").strip()
+            if source_line
+            else "Desconhecida"
+        )
 
-        print(f"  └─ [SUCESSO] Contexto recuperado via {source}.")
+        state_source = "DuckDuckGo" if "Web Scraping" in exact_source else exact_source
 
-        return {"searched_synopsis": res, "search_source": source}
+        if exact_source == "NOT FOUND":
+            print("  └─ [AVISO] Nenhum contexto encontrado nas fontes disponíveis.")
+        else:
+            print(f"  └─ [SUCESSO] Contexto recuperado via {exact_source}.")
+
+        return {"searched_synopsis": res, "search_source": state_source}
 
     except Exception as e:
         print(f"  [!] Falha na recuperação de dados:")

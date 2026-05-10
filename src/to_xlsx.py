@@ -31,6 +31,7 @@ def export_to_xlsx():
             "top_3_probabilities",
             "save_status",
             "retry_count",
+            "assuntos_tags",
         ]
 
         df_clean = df_done.drop(columns=cols_to_drop, errors="ignore")

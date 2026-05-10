@@ -1,71 +1,109 @@
 import time
+from collections import deque
 from langchain_google_genai import ChatGoogleGenerativeAI
 from agents.schemas import ClassificationOutput
 from agents.prompts import CLASSIFIER_PROMPT
 
+# Rate Limiter
+
+
+class _RateLimiter:
+    def __init__(self, rpm: int = 8):
+        self.rpm = rpm
+        self._timestamps: deque = deque()
+
+    def wait_if_needed(self):
+        now = time.time()
+        while self._timestamps and now - self._timestamps[0] > 60:
+            self._timestamps.popleft()
+
+        if len(self._timestamps) >= self.rpm:
+            sleep_for = 61 - (now - self._timestamps[0])
+            print(f"  └─ [THROTTLE] Janela cheia. Aguardando {sleep_for:.1f}s...")
+            time.sleep(sleep_for)
+
+        self._timestamps.append(time.time())
+
+
+_limiter = _RateLimiter(rpm=8)
+
+# LLM instanciado
+
+_llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash-lite",
+    temperature=0.2,
+)
+_structured_llm = _llm.with_structured_output(ClassificationOutput)
+
 
 def classifier_agent(state: dict) -> dict:
     """
-    Nó 2: Analisa a sinopse bruta e extrai os dados estruturados via LLM.
+    Nó 2: Analisa a sinopse bruta e extrai dados estruturados via LLM.
     """
-
     title = state.get("title", "Título Desconhecido")
     searched_synopsis = state.get("searched_synopsis", "")
     tries = state.get("retry_count", 0)
 
-    print(f"\n  [*] Processando inteligência: '{title}'")
+    print(f"\n  [*] Classificando: '{title}'")
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite",
-        temperature=0.2,
+    input_text = (
+        f"{CLASSIFIER_PROMPT}\n\n"
+        f"DADOS DO LIVRO:\nTítulo: {title}\nSinopse Bruta: {searched_synopsis}"
     )
 
-    structured_llm = llm.with_structured_output(ClassificationOutput)
+    for attempt in range(3):
+        try:
+            _limiter.wait_if_needed()  # Throttle preventivo
+            res = _structured_llm.invoke(input_text)
 
-    input_text = f"{CLASSIFIER_PROMPT}\n\nDADOS DO LIVRO:\nTítulo: {title}\nSinopse Bruta: {searched_synopsis}"
+            is_error = res.color_suggestion == "ERRO"
+            is_white = res.color_suggestion == "BRANCO"
 
-    try:
-        res = structured_llm.invoke(input_text)
+            if is_error:
+                print(f"  └─ [AVISO] Modelo retornou ERRO. Contabilizando falha.")
+            elif is_white:
+                print(
+                    f"  └─ [AVISO] Classificado como BRANCO (genérico). Contabilizando para retry."
+                )
+            else:
+                print(f"  └─ [SUCESSO] Cor definida: {res.color_suggestion}")
 
-        if res.color_suggestion == "BRANCO" or res.color_suggestion == "ERRO":
-            print(
-                f"  └─ [AVISO] IA retornou cor genérica '{res.color_suggestion}'. Contabilizando falha."
-            )
-            new_retry = tries + 1
-        else:
-            print(f"  └─ [SUCESSO] Classificação definida: {res.color_suggestion}")
-            new_retry = tries
+            return {
+                "color_suggestion": res.color_suggestion,
+                "justification": res.justification,
+                "final_synopsis": res.final_synopsis,
+                "final_tags": res.final_tags,
+                "top_3_probabilities": [
+                    p.model_dump() for p in res.top_3_probabilities
+                ],
+                "retry_count": tries + (1 if (is_error or is_white) else 0),
+            }
 
-        return {
-            "color_suggestion": res.color_suggestion,
-            "justification": res.justification,
-            "final_synopsis": res.final_synopsis,
-            "final_tags": res.final_tags,
-            "top_3_probabilities": [
-                prob.model_dump() for prob in res.top_3_probabilities
-            ],
-            "retry_count": new_retry,
-        }
+        except Exception as e:
+            err = str(e)
+            is_rate_limit = "429" in err or "RESOURCE_EXHAUSTED" in err
 
-    except Exception as e:
-        erro_str = str(e)
+            if is_rate_limit:
+                wait = 60 * (attempt + 1)  # 60s → 120s → 180s
+                print(
+                    f"  └─ [RATE LIMIT] Tentativa {attempt + 1}/3. Pausando {wait}s..."
+                )
 
-        print(f"  [!] Falha na inferência (Tentativa {tries + 1})")
-        print(f"      Detalhes: {erro_str[:150]}...\n")
+                if attempt == 2:
+                    print("  └─ [!] Rate limit persistente após 3 tentativas.")
+                    break
 
-        # Lidando com erro de cota
+                time.sleep(wait)
+                continue
 
-        if "429" in erro_str or "RESOURCE_EXHAUSTED" in erro_str:
-            print(f"  [AVISO] Limite de velocidade do Gemini (Free Tier) atingido.")
-            print(
-                f"  [PAUSA] Congelando a esteira por 60 segundos para resfriar a API..."
-            )
-            time.sleep(60)
-            print(f"  [RETOMANDO] Repouso finalizado. Devolvendo para o roteador...")
+            print(f"  └─ [!] Erro de inferência: {err[:150]}")
+            break
 
-        return {
-            "color_suggestion": "ERRO",
-            "justification": f"Falha na API: {erro_str[:100]}",
-            "top_3_probabilities": [],
-            "retry_count": tries + 1,
-        }
+    return {
+        "color_suggestion": "ERRO",
+        "justification": "Falha técnica após múltiplas tentativas.",
+        "final_synopsis": "Classificação abortada.",
+        "final_tags": [],
+        "top_3_probabilities": [],
+        "retry_count": tries + 1,
+    }
