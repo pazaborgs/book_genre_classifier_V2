@@ -22,5 +22,5 @@ class CollectionState(TypedDict):
     # Controle
 
     retry_count: int
-    save_status: Optional[str]
+    save_status: Optional[str]  # "ok" ou "pending"
     processed_at: Optional[str]

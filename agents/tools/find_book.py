@@ -3,7 +3,6 @@ import time
 import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
-
 import requests
 from dotenv import load_dotenv
 from langchain_community.tools import DuckDuckGoSearchResults
@@ -13,7 +12,6 @@ load_dotenv()
 
 TIMEOUT = 10
 MAX_SYNOPSIS = 2000
-
 
 @dataclass
 class BookResult:

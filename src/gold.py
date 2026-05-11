@@ -2,19 +2,18 @@ import pandas as pd
 import os
 from src.silver import load_config
 
-
 def process_gold():
     """
-    Prepara a base final (Gold) para consumo da IA.
-    Implementa Idempotência: Cria a base do zero ou adiciona apenas livros novos,
-    preservando o histórico de processamento já existente.
+    Prepara a base final (Gold) para consumo.
+    Cria a base do zero ou adiciona apenas livros novos, 
+    preservando o histórico de processamento (idempotência)
     """
 
     config = load_config()
     silver_path = config["data_paths"]["silver"]
     gold_path = config["data_paths"]["gold"]
 
-    # Validação
+    # Verificando existência da camada Silver
 
     if not os.path.exists(silver_path):
         print(f"\n[ERRO] Camada Silver não encontrada: {silver_path}")
@@ -42,14 +41,16 @@ def process_gold():
         cols_existing = [col for col in target_cols if col in df_silver.columns]
         df_silver_filtered = df_silver[cols_existing].copy()
 
-        # Cor -> true_color
+        # Renomeia Cor -> true_color
 
         if "cor" in df_silver_filtered.columns:
             df_silver_filtered = df_silver_filtered.rename(
                 columns={"cor": "true_color"}
             )
 
-        model_columns = [
+        # Colunas para o State
+
+        state_columns = [
             "searched_synopsis",
             "search_source",
             "final_synopsis",
@@ -60,15 +61,17 @@ def process_gold():
             "processed_at",
         ]
 
+        # IDEMPOTÊNCIA: Verifica se Gold já existe. Caso sim, adiciona somente as novas entradas.
+
         if os.path.exists(gold_path):
             print("  [INFO] Base Gold existente detectada. Verificando novos livros...")
 
-            df_gold_current = pd.read_parquet(gold_path)
-            current_entries = df_gold_current["tombo"].tolist()
+            df_gold_current = pd.read_parquet(gold_path)    # Entradas da gold
+            current_entries = df_gold_current["tombo"].tolist() # Tombos pré-existentes JOIN
 
             df_latest_entries = df_silver_filtered[
                 ~df_silver_filtered["tombo"].isin(current_entries)
-            ].copy()
+            ].copy()    # Últimas entradas = tudo de silver_filtered que não está em current_entries
 
             if df_latest_entries.empty:
                 print(
@@ -80,12 +83,12 @@ def process_gold():
                 f"  [INFO] {len(df_latest_entries)} novos livros encontrados. Preparando schema..."
             )
 
-            for col in model_columns:
+            for col in state_columns:
                 df_latest_entries[col] = None
             df_latest_entries["save_status"] = "pending"
             df_latest_entries["retry_count"] = 0
 
-            # JOIN
+            # JOIN = current + latest_entries
 
             df_gold_final = pd.concat(
                 [df_gold_current, df_latest_entries], ignore_index=True
@@ -95,13 +98,13 @@ def process_gold():
             print("  [INFO] Primeira execução. Criando base Gold...")
             df_gold_final = df_silver_filtered.copy()
 
-            for col in model_columns:
+            for col in state_columns:
                 df_gold_final[col] = None
             df_gold_final["save_status"] = "pending"
             df_gold_final["retry_count"] = 0
 
         os.makedirs(os.path.dirname(gold_path), exist_ok=True)
-        df_gold_final.to_parquet(gold_path, index=False)
+        df_gold_final.to_parquet(gold_path, index=False)    # Converta para .parquet
 
         print(f"  └─ [SUCESSO] Camada Gold salva/atualizada.")
         print(f"     [STATS]   Total de livros na base Gold: {len(df_gold_final)}")
@@ -110,7 +113,6 @@ def process_gold():
     except Exception as e:
         print(f"\n[!] Falha crítica na camada Gold:")
         print(f"    Erro: {e}\n")
-
 
 if __name__ == "__main__":
     process_gold()

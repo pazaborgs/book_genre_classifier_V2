@@ -1,7 +1,6 @@
 import time
 from rich.console import Console
 from rich.panel import Panel
-
 from src.ingest_sheet import download_spreadsheet
 from src.bronze import ingest_bronze
 from src.silver import process_silver
@@ -9,14 +8,26 @@ from src.gold import process_gold
 
 console = Console()
 
+def run_pipeline(update_sheet: bool = False) -> None:
+    """
+    Executa a orquestração do pipeline de dados na Arquitetura Medalhão.
 
-def run_pipeline(update_sheet=False):
+    Prepara e executa sequencialmente os passos para construir as camadas 
+    Bronze, Silver e Gold. Opcionalmente, realiza o download dos dados 
+    brutos antes de iniciar a ingestão.
+
+    Args:
+        update_sheet (bool, optional): Controla se a planilha original deve ser atualizada.
+            Default = False
+    """
 
     steps = [
         {"name": "Camada Bronze", "func": ingest_bronze},
         {"name": "Camada Silver", "func": process_silver},
         {"name": "Camada Gold", "func": process_gold},
     ]
+
+    # Se update_sheet = True, inclui o download da planilha como step inicial
 
     if update_sheet:
         steps.insert(
@@ -26,6 +37,8 @@ def run_pipeline(update_sheet=False):
                 "func": download_spreadsheet,
             },
         )
+
+    # Console rich
 
     with console.status(
         "[bold cyan]Iniciando orquestração...[/bold cyan]", spinner="point"
