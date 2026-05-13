@@ -2,11 +2,10 @@ import pandas as pd
 import os
 from src.bronze import load_config
 
-
 def export_to_xlsx():
     """
-    Reverse ETL: Lê a Gold, filtra os classificados com sucesso,
-    remove colunas técnicas e exporta para os bibliotecários.
+    Reverse ETL: Lê a camada Gold, filtra os classificados com sucesso,
+    remove colunas técnicas e exporta em formato .xlsx
     """
 
     print("\n  [*] Iniciando exportação para Excel (Reverse ETL)...")
@@ -14,6 +13,8 @@ def export_to_xlsx():
     config = load_config()
     gold_path = config["data_paths"]["gold"]
     export_data_path = config["data_paths"]["export_data"]
+
+    # Verificando se o caminho existe
 
     os.makedirs(os.path.dirname(export_data_path), exist_ok=True)
 
@@ -36,14 +37,14 @@ def export_to_xlsx():
 
         df_clean = df_done.drop(columns=cols_to_drop, errors="ignore")
 
-        # Ordenando
+        # Ordenando as colunas
 
         priority_cols = ["tombo", "titulo", "autores"]
         existing_cols = [col for col in priority_cols if col in df_clean.columns]
         remaining_cols = [col for col in df_clean.columns if col not in existing_cols]
         df_clean = df_clean[existing_cols + remaining_cols]
 
-        # To Excel
+        # Para excel
 
         df_clean.to_excel(export_data_path, index=False)
 

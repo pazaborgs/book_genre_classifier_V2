@@ -7,7 +7,9 @@ from src.bronze import load_config
 
 def download_spreadsheet():
     """
-    Conecta ao Google Drive, baixa a planilha original e salva na camada RAW.
+    Conecta ao Google Drive, baixa a planilha mais recente e salva na camada RAW.
+    A função lê o caminho dos dados através do arquivo de configuração, 
+    cria os diretórios necessários e salva o arquivo de saída.
     """
 
     config = load_config()
@@ -15,6 +17,8 @@ def download_spreadsheet():
     raw_data_path = config["data_paths"]["raw_data"]
     spreadsheet_id = config["sheets"]["spreadsheet_id"]
     credentials_path = config["sheets"]["credentials_path"]
+
+    # Verificando as credenciais
 
     if not os.path.exists(credentials_path):
         print(f"\n[ERRO] Arquivo de credenciais não encontrado: {credentials_path}")
@@ -39,7 +43,7 @@ def download_spreadsheet():
 
         os.makedirs(os.path.dirname(raw_data_path), exist_ok=True)
 
-        # Baixando em chunks
+        # Baixando em lotes
 
         with open(raw_data_path, "wb") as f:
             downloader = MediaIoBaseDownload(f, request)

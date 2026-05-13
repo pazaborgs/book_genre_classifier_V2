@@ -2,7 +2,6 @@ import pandas as pd
 import os
 from src.bronze import load_config
 
-
 def process_silver():
     """
     Aplica regras de limpeza, padronização e desduplicação aos dados brutos.
@@ -13,7 +12,7 @@ def process_silver():
     bronze_path = config["data_paths"]["bronze"]
     silver_path = config["data_paths"]["silver"]
 
-    # Validação
+    # Verificando existência da camdada Bronze
 
     if not os.path.exists(bronze_path):
         print(f"\n[ERRO] Camada Bronze não encontrada: {bronze_path}")
@@ -93,7 +92,7 @@ def process_silver():
                 .str.decode("utf-8")
             )
 
-        # Salvamento
+        # Salvando
 
         os.makedirs(os.path.dirname(silver_path), exist_ok=True)
         df.to_parquet(silver_path, index=False)
