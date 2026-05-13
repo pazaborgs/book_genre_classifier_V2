@@ -1,22 +1,32 @@
-# 📚 Book Genre Classifier V2
+# 📚 BOOK GENRE CLASSIFIER V2
 
-> 🚧 **WORK IN PROGRESS:** Este projeto encontra-se em fase de refatoração ativa para otimização de chamadas de API (_Rate Limits_), economia de tokens, resiliência das ferramentas de web scraping...
+> ⚡ **STATUS:** Em produção (WIP)
 
-Um sistema automatizado de classificação de gênero literário desenvolvido para o acervo de um colégio municipal.
+> 🔗 **DEMO:** [Acesse o Painel](https://bookgenreclassifierv2-b3zq5g7tfrpedupkxvixux.streamlit.app/)
 
-O pipeline une Engenharia de Dados Clássica a Agentes Autônomos de IA para ler um inventário bruto, buscar sinopses na web e inferir a categoria (gênero) correta de cada livro, garantindo a idempotência do processamento.
+Sistema automatizado de classificação de gênero literário desenvolvido para o acervo de um colégio municipal.
 
-## 🛠️ Stack (Planejado)
+O pipeline une Engenharia de Dados e Agentes Autônomos de IA para processar inventários brutos, buscar sinopses na web e inferir categorias literárias com garantia de idempotência.
 
-- **Engenharia de Dados:** Arquitetura Medallion (Bronze, Silver, Gold), Pandas, formato `.parquet`.
-- **Agentes & IA:** LangGraph, LangChain, Google Gemini, Pydantic (Structured Outputs).
-- **Integrações (Tools):** Google Books API, DuckDuckGo Search (Skoob / Goodreads).
-- **Interface & Monitoramento:** Streamlit.
+## 🏗️ Arquitetura e Engenharia
 
-## 📌 Backlog
+- **Engine de IA:** Agentes autônomos via LangGraph e Gemini 2.5 Flash-Lite com saídas estruturadas (Pydantic).
+- **Resiliência:** Rate Limiting customizado (20 RPM) com lógica Anti-Burst para otimização de APIs gratuitas.
+- **Infraestrutura:** Containerização via Docker com gerenciamento de pacotes ultra-rápido via `uv`.
+- **Camada de Dados:** Arquitetura Medallion (Bronze/Silver/Gold) persistida em arquivos `.parquet`.
 
-[] Colocar os dados na nuvem (GCP, AWS…) + container Docker.
-[] Criar o painel interativo usando Streamlit.
-[] Melhorar o prompt de classificação e testar modelos de LLM diferentes.
-[] Classificar 20-30% da base de dados até o final do mês.
+## 🛠️ Tecnologias
 
+- **Inteligência Artificial:** LangGraph, LangChain, Google Gemini (2.5 Flash-Lite) e Pydantic (Structured Outputs).
+- **Engenharia de Dados:** Pandas, formato `.parquet` e Arquitetura Medallion.
+- **Infraestrutura e Deploy:** Docker, `uv` (Package Manager) e Streamlit.
+
+## 📌 Milestones
+
+- [x] Arquitetura de camadas (Medallion) em Parquet.
+- [x] Containerização da aplicação para ambiente isolado.
+- [x] Deploy do dashboard visual no Streamlit Cloud.
+- [ ] Implementação de Orquestração via GitHub Actions (Cron).
+- [ ] Integração de Reverse ETL para Google Drive (In-Place Update).
+- [ ] Migração de storage para Object Storage (AWS S3 ou GCP).
+- [ ] Meta: Classificar 25% da base total até o fim do mês.
