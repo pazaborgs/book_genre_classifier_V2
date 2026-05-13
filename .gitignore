@@ -1,12 +1,18 @@
 ./venv
 env/
-data/
 .venv/
-data/
 .env
 *.csv
-*.parquet
+# *.parquet
 *.xlsx
 __pycache__/
 .pytest_cache/
 .secrets/
+
+# Regra de excessão
+
+
+data/*
+!data/gold/
+data/gold/*
+!data/gold/tombo_gold.parquet
