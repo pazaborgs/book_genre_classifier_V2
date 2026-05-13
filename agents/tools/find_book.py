@@ -13,6 +13,7 @@ load_dotenv()
 TIMEOUT = 10
 MAX_SYNOPSIS = 2000
 
+
 @dataclass
 class BookResult:
     source: str
@@ -45,12 +46,25 @@ def _truncate(text: str, limit: int = MAX_SYNOPSIS) -> str:
     return text[:limit].rsplit(" ", 1)[0] + "…"
 
 
-# Search Engines
+# =================================
+# SEARCH ENGINES
+# =================================
 
 # Google Books
 
 
 def _google_books(title: str, authors: str, exact: bool = True) -> Optional[BookResult]:
+    """
+    Consulta a API do Google Books para extrair sinopse e categorias.
+
+    Depende da variável de ambiente 'GOOGLE_BOOKS_API_KEY'.
+
+    Args:
+        title: Título do livro.
+        authors: Nome do(s) autor(es).
+        exact: Se True, usa operadores restritos (intitle:/inauthor:). Se False, usa busca ampla.
+    """
+
     api_key = os.getenv("GOOGLE_BOOKS_API_KEY")
     if not api_key:
         return None
@@ -84,6 +98,10 @@ def _google_books(title: str, authors: str, exact: bool = True) -> Optional[Book
 
 
 def _open_library(title: str) -> Optional[BookResult]:
+    """
+    Consulta a API pública do Open Library (sem necessidade de autenticação).
+    """
+
     url = (
         f"https://openlibrary.org/search.json?title={urllib.parse.quote(title)}&limit=3"
     )
@@ -104,8 +122,15 @@ def _open_library(title: str) -> Optional[BookResult]:
 
 def _duckduckgo_search(title: str, target: str) -> Optional[BookResult]:
     """
-    Usa o DDGS para varrer sites específicos sem tomar block
+    Realiza web scraping indireto via resultados do DuckDuckGo.
+
+    Possui um hard-sleep de 1.5s embutido para mitigar o Rate Limit nativo da biblioteca DDGS.
+
+    Args:
+        title: Título do livro a ser buscado.
+        target: 'amazon' (restringe a site:amazon.com.br) ou 'general' (busca livre por sinopse).
     """
+
     time.sleep(1.5)  # DDGS Rate Limit
     ddg = DuckDuckGoSearchResults(num_results=2)
 
@@ -126,8 +151,12 @@ def _duckduckgo_search(title: str, target: str) -> Optional[BookResult]:
 
 def _find_book(title: str, authors: str) -> str:
     """
-    Busca contexto dos livros usando Google Books, DDGS ou Open Library
+    Orquestra a busca de informações do livro através de uma esteira em cascata (Fallback Pipeline).
+
+    Tenta recuperar os dados respeitando a seguinte ordem de prioridade:
+    Google Exact -> Google Broad -> DDGS Amazon -> DDGS General -> Open Library.
     """
+
     clean_title = _clean(title)
     clean_authors = _clean(authors)
 
@@ -158,6 +187,6 @@ def _find_book(title: str, authors: str) -> str:
 @tool
 def find_book(title: str, authors: str) -> str:
     """
-    Busca informações detalhadas, synopsis e tags de um livro.
+    Busca informações detalhadas, sinopse e tags de um livro na internet usando múltiplos motores de busca.
     """
     return _find_book(title, authors)

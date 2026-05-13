@@ -1,11 +1,9 @@
 import pandas as pd
 from src.bronze import load_config
 
-print("\n  [*] Limpando os erros da base Gold...")
-
 
 def reset_errors():
-
+    print("\n  [*] Limpando os erros da base Gold...")
     config = load_config()
     gold_path = config["data_paths"]["gold"]
     df = pd.read_parquet(gold_path)

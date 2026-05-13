@@ -11,7 +11,6 @@ __pycache__/
 
 # Regra de excessão
 
-
 data/*
 !data/gold/
 data/gold/*

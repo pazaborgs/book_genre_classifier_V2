@@ -6,8 +6,9 @@ from src.bronze import load_config
 
 def save_node(state: dict) -> dict:
     """
-    Nó 3: Persistência de Dados (Padrão UPDATE)
-    Localiza o registro na camada Gold e consolida os metadados finais.
+    Nó 3: Persistência de Dados
+
+    Localiza o registro na camada Gold e consolida os metadados.
     """
     config = load_config()
     gold_path = config["data_paths"]["gold"]
@@ -23,6 +24,7 @@ def save_node(state: dict) -> dict:
         df = pd.read_parquet(gold_path)
 
         # Localiza a linha exata pelo tombo (PK)
+
         mask = df["tombo"].astype(str) == str(tombo)
 
         if not mask.any():
@@ -30,6 +32,7 @@ def save_node(state: dict) -> dict:
             return {"save_status": "pending"}
 
         # Injeção de metadados processados
+
         df.loc[mask, "color_suggestion"] = color
         df.loc[mask, "justification"] = state.get("justification", "")
         df.loc[mask, "final_synopsis"] = state.get("final_synopsis", "")
@@ -42,10 +45,12 @@ def save_node(state: dict) -> dict:
         df.loc[mask, "processed_at"] = now
 
         # Lógica de status binária para o banco e para o grafo
+
         status_final = "ok" if color != "ERRO" else "pending"
         df.loc[mask, "save_status"] = status_final
 
         # Persistência em Parquet (Gold Layer)
+
         df.to_parquet(gold_path, index=False)
 
         print(f"  └─ [SUCESSO] Persistência concluída na camada Gold.")

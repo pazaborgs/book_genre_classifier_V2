@@ -27,7 +27,7 @@ _COLOR_STYLE = {
     "PRATA": "white",
     "PRETO": "bright_black",
     "LARANJA": "orange3",
-    "DIDÁTICO": "cyan",
+    "DIDATICO": "cyan",
     "ERRO": "bold red",
 }
 
@@ -40,7 +40,7 @@ def _color_label(color: str) -> str:
 def main(limit: int = 30):
     console.print(
         Panel.fit(
-            "[bold blue]Orquestração do Pipeline — Classificação de Livros Agêntica[/bold blue]",
+            "[bold blue]Orquestracao do Pipeline - Classificacao de Livros Agentica[/bold blue]",
             border_style="blue",
         )
     )
@@ -69,7 +69,7 @@ def main(limit: int = 30):
         return
 
     df_batch = df_pending.head(limit)
-    console.print(f"[*] [bold]{len(df_pending)}[/bold] pendências totais.")
+    console.print(f"[*] [bold]{len(df_pending)}[/bold] pendencias totais.")
     console.print(
         f" └─ Processando lote de [bold cyan]{len(df_batch)}[/bold cyan] registros...\n"
     )
@@ -105,11 +105,10 @@ def main(limit: int = 30):
                 final_state = app.invoke(book_state)
                 color = final_state.get("color_suggestion", "N/A")
 
-                # Acumula erros consecutivos
                 if color == "ERRO":
                     error_count += 1
                 else:
-                    error_count = 0  # reseta em qualquer sucesso (inclusive BRANCO)
+                    error_count = 0
 
                 batch_results.append(
                     (tombo, title, "[green]✔ Classificado[/green]", color)
@@ -117,29 +116,58 @@ def main(limit: int = 30):
 
                 if error_count >= MAX_ERRORS:
                     console.print(
-                        f"\n[bold red]{MAX_ERRORS} erros consecutivos — possível falha sistêmica. Abortando lote.[/bold red]"
+                        f"\n[bold red]{MAX_ERRORS} erros consecutivos — possivel falha sistêmica. Abortando lote.[/bold red]"
                     )
+                    break
+
+            except RuntimeError as e:
+
+                # Cota diaria esgotada
+
+                if "DAILY_QUOTA_EXHAUSTED" in str(e):
+                    console.print(
+                        "\n[bold red on white] COTA DIARIA ESGOTADA [/bold red on white]"
+                    )
+                    console.print(
+                        "[red] └─ O Google bloqueou novas requisicoes ate meia-noite (UTC).[/red]"
+                    )
+                    console.print(
+                        "[red] └─ Salvo o progresso atual. Rode novamente amanha.[/red]"
+                    )
+                    batch_results.append(
+                        (tombo, title, "[bold red]Cota esgotada[/bold red]", "---")
+                    )
+                    break
+
+                # RuntimeError de outros tipos = erro comum
+
+                console.print(
+                    f"\n[bold red][!] Excecao RuntimeError no tombo {tombo}:[/bold red] {e}"
+                )
+                batch_results.append(
+                    (tombo, title, "[bold red]Excecao[/bold red]", "---")
+                )
+                error_count += 1
+                if error_count >= MAX_ERRORS:
                     break
 
             except Exception as e:
                 console.print(
-                    f"\n[bold red][!] Exceção não tratada no tombo {tombo}:[/bold red] {e}"
+                    f"\n[bold red][!] Excecao nao tratada no tombo {tombo}:[/bold red] {e}"
                 )
                 batch_results.append(
-                    (tombo, title, "[bold red]Exceção[/bold red]", "---")
+                    (tombo, title, "[bold red]Excecao[/bold red]", "---")
                 )
                 error_count += 1
-
                 if error_count >= MAX_ERRORS:
                     break
 
             progress.advance(task)
 
-    # Resultados
     console.print()
     table = Table(title="Resumo do Lote", border_style="blue", header_style="bold cyan")
     table.add_column("Tombo", justify="right", style="cyan", no_wrap=True)
-    table.add_column("Título", style="white")
+    table.add_column("Titulo", style="white")
     table.add_column("Status", justify="center")
     table.add_column("Cor", justify="center")
 
@@ -151,9 +179,9 @@ def main(limit: int = 30):
 
 
 def _finish():
-    console.print("\n[dim]" + "─" * 60 + "[/dim]")
+    console.print("\n[dim]" + "-" * 60 + "[/dim]")
     with console.status(
-        "[bold green]Exportando Gold → XLSX...[/bold green]", spinner="bouncingBar"
+        "[bold green]Exportando Gold -> XLSX...[/bold green]", spinner="bouncingBar"
     ):
         export_to_xlsx()
     console.print(
@@ -162,4 +190,4 @@ def _finish():
 
 
 if __name__ == "__main__":
-    main(limit=10)
+    main(limit=5)

@@ -4,7 +4,9 @@ from agents.tools.find_book import _find_book
 def search_node(state: dict) -> dict:
     """
     Nó 1: Agente de Enriquecimento de Dados.
-    Busca metadados externos (sinopse e tags) para subsidiar a classificação.
+
+    Busca metadados externos (sinopse e tags) para auxiliar a classificação.
+    Retorna os metadados + a fonte de busca.
     """
 
     title = state.get("title", "Título Desconhecido")
