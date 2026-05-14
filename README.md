@@ -26,7 +26,7 @@ O pipeline une Engenharia de Dados e Agentes Autônomos de IA para processar inv
 - [x] Arquitetura de camadas (Medallion) em Parquet.
 - [x] Containerização da aplicação para ambiente isolado.
 - [x] Deploy do dashboard visual no Streamlit Cloud.
+- [x] Integração de Reverse ETL para Google Drive (In-Place Update).
 - [ ] Implementação de Orquestração via GitHub Actions (Cron).
-- [ ] Integração de Reverse ETL para Google Drive (In-Place Update).
 - [ ] Migração de storage para Object Storage (AWS S3 ou GCP).
 - [ ] Meta: Classificar 25% da base total até o fim do mês.
