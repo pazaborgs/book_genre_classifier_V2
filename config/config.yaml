@@ -5,10 +5,9 @@ data_paths:
   gold: "data/gold/tombo_gold.parquet"
   export_data: "data/export/tombo_export.xlsx"
 
-# Agent Settings (WIP)
-
 # Sheets Settings + GCP
 
 sheets:
   spreadsheet_id: "19hLlUMZc0_jDcWJ_0jSuewUysUbZsIs6"
+  target_folder_id: "1p2eXVsjl1OgFdVRgO-Cg5mH2LiAsJw71"
   credentials_path: ".secrets/google_drive_credentials.json"

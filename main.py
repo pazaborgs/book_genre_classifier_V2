@@ -190,4 +190,4 @@ def _finish():
 
 
 if __name__ == "__main__":
-    main(limit=5)
+    main(limit=20)
